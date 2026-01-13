@@ -1,6 +1,6 @@
 # miND - miRNA NGS Data Pipeline
 
-miND is a comprehensive Nextflow pipeline for miRNA NGS data analysis.
+miND is a comprehensive Nextflow pipeline for miRNA NGS data analysis, following nf-core best practices.
 
 ## Overview
 
@@ -88,10 +88,24 @@ The `run_nextflow.sh` script will automatically install Nextflow if not found.
 #### Using Nextflow Directly
 
 ```bash
+# Basic usage
 nextflow run main.nf \
   --sampleSheet SampleContrastSheet.xlsx \
+  -profile conda
+
+# Or use --input as an alias for --sampleSheet
+nextflow run main.nf \
+  --input SampleContrastSheet.xlsx \
   --outputSubfolder my_analysis \
-  -profile standard,conda
+  -profile conda
+
+# With custom resources
+nextflow run main.nf \
+  --sampleSheet SampleContrastSheet.xlsx \
+  --threads_high 12 \
+  --threads_medium 8 \
+  --threads_low 4 \
+  -profile conda
 ```
 
 ## Configuration
@@ -179,13 +193,14 @@ output/
 
 ## Why Nextflow?
 
-This pipeline uses Nextflow for workflow management, offering:
+This pipeline uses Nextflow for workflow management and follows nf-core best practices, offering:
 
 - **Better portability** - Easier containerization with Docker/Singularity
 - **Cloud support** - Native support for cloud execution (AWS, Google Cloud, Azure)
 - **Reactive dataflow** - More flexible channel-based data flow
-- **Resume capability** - Better handling of pipeline resumption
+- **Resume capability** - Better handling of pipeline resumption with `-resume`
 - **Modern syntax** - DSL2 provides cleaner, more modular code
+- **Best practices** - Follows nf-core community standards
 
 ## Examples
 

@@ -1,11 +1,79 @@
 #!/usr/bin/env nextflow
-nextflow.enable.dsl = 2
 
 /*
  * miND - miRNA NGS data pipeline
  * Copyright (C) 2021 TAmiRNA GmbH
  * Written and developed by Andreas B. Diendorfer
  */
+
+// Import groovy libraries
+import groovy.json.JsonSlurper
+import java.nio.file.Paths
+
+/*
+ * Print help message
+ */
+def helpMessage() {
+    log.info"""
+    ====================================================
+    miND - miRNA NGS Data Pipeline v${workflow.manifest.version}
+    ====================================================
+    
+    Usage:
+      nextflow run main.nf --sampleSheet <file.xlsx> [options]
+    
+    Required arguments:
+      --sampleSheet <file>      Path to Excel sample sheet (SampleContrastSheet.xlsx)
+    
+    Optional arguments:
+      --outputSubfolder <name>  Output subfolder name (default: derived from sample sheet)
+      --outdir <path>           Output directory (default: 'output')
+      
+      --threads_high <int>      CPUs for high-intensity tasks (default: 6)
+      --threads_medium <int>    CPUs for medium-intensity tasks (default: 4)
+      --threads_low <int>       CPUs for low-intensity tasks (default: 2)
+      
+      --miRBaseVersion <ver>    miRBase version (default: '22.1')
+      --rnacentralVersion <ver> RNAcentral version (default: '19.0')
+      
+    Profiles:
+      -profile standard         Standard local execution
+      -profile conda            Use conda environments
+      -profile docker           Use Docker containers
+      -profile singularity      Use Singularity containers
+    
+    Other options:
+      -resume                   Resume previous run
+      --help                    Show this help message
+      --version                 Show version information
+    
+    For more information:
+      https://github.com/AHinsu/miND
+    ====================================================
+    """.stripIndent()
+}
+
+/*
+ * Show version information
+ */
+def versionMessage() {
+    log.info"""
+    miND Pipeline v${workflow.manifest.version}
+    Nextflow version: ${workflow.nextflow.version}
+    """.stripIndent()
+}
+
+// Show help message if requested
+if (params.help) {
+    helpMessage()
+    exit 0
+}
+
+// Show version if requested
+if (params.version) {
+    versionMessage()
+    exit 0
+}
 
 // Import groovy libraries
 import groovy.json.JsonSlurper
@@ -50,12 +118,15 @@ def parseExcelConfig(sampleSheet) {
  */
 workflow {
     // Check required parameters
-    if (!params.sampleSheet) {
-        error "Please provide a sample sheet with --sampleSheet parameter"
+    def sampleSheetParam = params.input ?: params.sampleSheet
+    if (!sampleSheetParam) {
+        log.error "Please provide a sample sheet with --sampleSheet or --input parameter"
+        helpMessage()
+        exit 1
     }
     
     // Parse sample sheet
-    sampleSheetFile = file(params.sampleSheet)
+    sampleSheetFile = file(sampleSheetParam)
     if (!sampleSheetFile.exists()) {
         error "Sample sheet not found: ${params.sampleSheet}"
     }
@@ -104,7 +175,8 @@ workflow {
         // Main pipeline execution
         MIND_PIPELINE(sampleSheetFile, sampleSheetPath, outPath, config.samples)
     } else {
-        error "No samples found in sample sheet. Please check the Excel file format."
+        log.error "No samples found in sample sheet. Please check the Excel file format."
+        exit 1
     }
 }
 
