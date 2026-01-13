@@ -1,6 +1,6 @@
 # miND - miRNA NGS Data Pipeline
 
-miND is a comprehensive pipeline for miRNA NGS data analysis, supporting both Snakemake and Nextflow workflow engines.
+miND is a comprehensive Nextflow pipeline for miRNA NGS data analysis, following nf-core best practices.
 
 ## Overview
 
@@ -23,7 +23,7 @@ The miND pipeline processes small RNA sequencing data through the following stag
 
 ### Software Dependencies
 
-- **Nextflow** (≥21.04.0) or **Snakemake** (≥7.0)
+- **Nextflow** (≥21.04.0)
 - **Conda** or **Mamba** (for dependency management)
 - **Python** (≥3.9) with pandas and xlrd
 - **R** (≥4.0) with required packages
@@ -63,18 +63,38 @@ The `run_nextflow.sh` script will automatically install Nextflow if not found.
 
 ## Usage
 
-### Nextflow Version (Recommended)
+### Basic Usage
 
-#### Basic Usage
+The pipeline can be run using the convenience wrapper script or directly with Nextflow.
+
+**Using the wrapper script (recommended for beginners):**
 
 ```bash
 ./run_nextflow.sh -i SampleContrastSheet.xlsx
 ```
 
+**Using Nextflow directly:**
+
+```bash
+nextflow run main.nf --sampleSheet SampleContrastSheet.xlsx -profile conda
+```
+
 #### Advanced Usage
+
+**Using the wrapper script:**
 
 ```bash
 ./run_nextflow.sh -i SampleContrastSheet.xlsx -o my_analysis -profile standard,conda
+```
+
+**Using Nextflow directly:**
+
+```bash
+nextflow run main.nf \
+  --sampleSheet SampleContrastSheet.xlsx \
+  --outputSubfolder my_analysis \
+  -profile conda \
+  -resume
 ```
 
 #### Command Line Options
@@ -90,24 +110,24 @@ The `run_nextflow.sh` script will automatically install Nextflow if not found.
 #### Using Nextflow Directly
 
 ```bash
+# Basic usage
 nextflow run main.nf \
   --sampleSheet SampleContrastSheet.xlsx \
+  -profile conda
+
+# Or use --input as an alias for --sampleSheet
+nextflow run main.nf \
+  --input SampleContrastSheet.xlsx \
   --outputSubfolder my_analysis \
-  -profile standard,conda
-```
+  -profile conda
 
-### Snakemake Version (Legacy)
-
-#### Basic Usage
-
-```bash
-./run.sh -i SampleContrastSheet.xlsx
-```
-
-#### Advanced Usage
-
-```bash
-./run.sh -i SampleContrastSheet.xlsx -o my_analysis -k
+# With custom resources
+nextflow run main.nf \
+  --sampleSheet SampleContrastSheet.xlsx \
+  --threads_high 12 \
+  --threads_medium 8 \
+  --threads_low 4 \
+  -profile conda
 ```
 
 ## Configuration
@@ -154,12 +174,7 @@ nextflow run main.nf \
   --rnacentralVersion "19.0"
 ```
 
-#### Snakemake Configuration (`config.yaml`)
 
-Edit `config.yaml` to set:
-- Thread allocation
-- Reference data paths
-- Species-specific parameters
 
 ## Supported Species
 
@@ -198,35 +213,16 @@ output/
     └── [DATE]_[PROJECTID]_MINDreport.zip  # Final results package
 ```
 
-## Nextflow vs Snakemake
+## Why Nextflow?
 
-### Nextflow Advantages
+This pipeline uses Nextflow for workflow management and follows nf-core best practices, offering:
 
 - **Better portability** - Easier containerization with Docker/Singularity
 - **Cloud support** - Native support for cloud execution (AWS, Google Cloud, Azure)
 - **Reactive dataflow** - More flexible channel-based data flow
-- **Resume capability** - Better handling of pipeline resumption
+- **Resume capability** - Better handling of pipeline resumption with `-resume`
 - **Modern syntax** - DSL2 provides cleaner, more modular code
-
-### Snakemake Advantages
-
-- **Established** - Mature ecosystem with extensive documentation
-- **Rule-based** - Intuitive rule definitions
-- **Integration** - Tight integration with conda environments
-
-### Migration from Snakemake to Nextflow
-
-The Nextflow version maintains compatibility with:
-- Same input format (Excel sample sheets)
-- Same conda environments
-- Same R and Python scripts
-- Same output structure
-
-To migrate:
-
-1. Use `run_nextflow.sh` instead of `run.sh`
-2. All other parameters remain the same
-3. Output structure is identical
+- **Best practices** - Follows nf-core community standards
 
 ## Examples
 
@@ -282,20 +278,6 @@ chmod +x run_nextflow.sh scripts/*.py
 nextflow run main.nf -profile conda --conda-frontend mamba
 ```
 
-### Snakemake Issues
-
-**Issue**: Conda environment creation fails
-```bash
-# Clean conda cache
-conda clean --all
-```
-
-**Issue**: Workflow locked
-```bash
-# Unlock workflow
-snakemake --unlock
-```
-
 ## Performance Tuning
 
 ### Thread Allocation
@@ -348,15 +330,10 @@ For issues and questions:
 
 ## Changelog
 
-### Version 2.0 (Nextflow)
-- Converted pipeline from Snakemake to Nextflow
+### Version 2.0 (Current - Nextflow)
+- Nextflow-based pipeline implementation
 - Added DSL2 syntax for better modularity
 - Improved error handling and resume capability
 - Added support for Docker and Singularity containers
 - Enhanced reporting with timeline and trace
-
-### Version 1.3 (Snakemake)
-- Original Snakemake implementation
-- Support for multiple species
-- Differential expression analysis
-- HTML report generation
+- Removed legacy Snakemake support

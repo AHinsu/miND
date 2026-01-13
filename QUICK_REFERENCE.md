@@ -328,16 +328,14 @@ nextflow help run
 
 # Check documentation
 cat README.md
-cat MIGRATION.md
-cat PROCESS_MAPPING.md
+cat QUICK_REFERENCE.md
 ```
 
 ## Resources
 
 - **Main Docs**: README.md
-- **Migration**: MIGRATION.md
-- **Process Mapping**: PROCESS_MAPPING.md
 - **Nextflow Docs**: https://www.nextflow.io/docs/latest/
+- **nf-core**: https://nf-co.re/
 - **Issues**: https://github.com/AHinsu/miND/issues
 
 ---

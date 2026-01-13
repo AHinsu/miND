@@ -158,5 +158,5 @@ fi
 
 echo "For more information, see:"
 echo "  - README.md (general documentation)"
-echo "  - MIGRATION.md (migration from Snakemake)"
+echo "  - QUICK_REFERENCE.md (quick reference guide)"
 echo "======================================================"

@@ -1,7 +1,6 @@
 #!/bin/bash
 # Nextflow run script for miND pipeline
 # Copyright (C) 2021 TAmiRNA GmbH
-# Adapted from Snakemake version to Nextflow
 
 source ~/.bashrc
 
