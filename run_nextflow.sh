@@ -128,11 +128,18 @@ if ! command -v nextflow &> /dev/null; then
     echo "Installing Nextflow via conda..."
     conda install -y -c bioconda nextflow
   else
-    # Install Nextflow directly
-    echo "Installing Nextflow directly..."
+    # Install Nextflow directly to current directory
+    echo "Installing Nextflow to current directory..."
     curl -s https://get.nextflow.io | bash
-    chmod +x nextflow
-    sudo mv nextflow /usr/local/bin/
+    
+    # Add to PATH for this session
+    export PATH="$(pwd):$PATH"
+    
+    echo "Nextflow installed to: $(pwd)/nextflow"
+    echo "To make it permanently available, add to PATH or run:"
+    echo "  sudo mv nextflow /usr/local/bin/"
+    echo "  OR"
+    echo "  export PATH=\"\$(pwd):\$PATH\""
   fi
   
   # Verify installation

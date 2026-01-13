@@ -101,8 +101,38 @@ def parse_excel_config(excel_file):
         if 'Report spikein sequences' in project_details:
             config['includeSequence'] = 1 if project_details['Report spikein sequences'] == 'Yes' else 0
         
+    except FileNotFoundError:
+        error_msg = {
+            "error": "File not found",
+            "message": f"Excel file does not exist: {excel_file}",
+            "suggestion": "Please check the file path and try again."
+        }
+        print(json.dumps(error_msg), file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        error_msg = {
+            "error": "Invalid Excel format",
+            "message": str(e),
+            "suggestion": "Please ensure the Excel file has 'Project Details' and 'Sample Group Matrix' sheets."
+        }
+        print(json.dumps(error_msg), file=sys.stderr)
+        sys.exit(1)
+    except KeyError as e:
+        error_msg = {
+            "error": "Missing required column",
+            "message": f"Column not found: {str(e)}",
+            "suggestion": "Please check that the Excel file follows the required format."
+        }
+        print(json.dumps(error_msg), file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
-        print(json.dumps({"error": str(e)}), file=sys.stderr)
+        error_msg = {
+            "error": "Excel parsing failed",
+            "message": str(e),
+            "type": type(e).__name__,
+            "suggestion": "Please verify the Excel file format matches SampleContrastSheet.example.xlsx"
+        }
+        print(json.dumps(error_msg), file=sys.stderr)
         sys.exit(1)
     
     return config

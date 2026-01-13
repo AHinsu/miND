@@ -16,23 +16,31 @@ import java.nio.file.Paths
  * Parse Excel configuration file
  */
 def parseExcelConfig(sampleSheet) {
-    // This will be handled by a dedicated Python/R script
-    // For now, we'll use a simplified approach
     def configData = [:]
     def samples = []
     
-    // Run Python script to parse Excel
+    // Run Python script to parse Excel safely
     def parseScript = file("${projectDir}/scripts/parse_excel_config.py")
     if (parseScript.exists()) {
-        def cmd = "python ${parseScript} ${sampleSheet}"
-        def proc = cmd.execute()
-        proc.waitFor()
-        
-        if (proc.exitValue() == 0) {
-            def jsonOutput = proc.in.text
-            def jsonSlurper = new JsonSlurper()
-            configData = jsonSlurper.parseText(jsonOutput)
+        try {
+            // Use ProcessBuilder for safer command execution
+            def command = ['python3', parseScript.toString(), sampleSheet.toString()]
+            def proc = command.execute()
+            proc.waitFor()
+            
+            if (proc.exitValue() == 0) {
+                def jsonOutput = proc.in.text
+                def jsonSlurper = new JsonSlurper()
+                configData = jsonSlurper.parseText(jsonOutput)
+            } else {
+                def errorOutput = proc.err.text
+                log.error "Failed to parse Excel configuration: ${errorOutput}"
+            }
+        } catch (Exception e) {
+            log.error "Error executing Excel parser: ${e.message}"
         }
+    } else {
+        log.warn "Excel parser script not found: ${parseScript}"
     }
     
     return configData
@@ -580,14 +588,28 @@ process BOWTIE_GENOME {
     
     script:
     """
+    # Run Bowtie mapping to genome
     bowtie --threads ${task.cpus} -f -k1 -v2 --fullref \
         --un ${sample}.unmapped.fasta \
         --al ${sample}.mapped.fasta \
         ${params.repoPath}/${params.genomeID}/${params.genomeVersion}/bowtiedb/genome \
         ${fasta} > ${sample}.map
     
-    cat ${sample}.mapped.fasta | awk '{if(NR%2==1) {printf "%s\\t",\$0} else {printf "%i\\n",length(\$1)} }' | cut -d "x" -f2 | awk '{i[\$2]+=\$1} END{for(x in i){print i[x]" "x}}' | sort -k2 -n > ${sample}.mapped.ssd
-    cat ${sample}.unmapped.fasta | awk '{if(NR%2==1) {printf "%s\\t",\$0} else {printf "%i\\n",length(\$1)} }' | cut -d "x" -f2 | awk '{i[\$2]+=\$1} END{for(x in i){print i[x]" "x}}' | sort -k2 -n > ${sample}.unmapped.ssd
+    # Calculate sequence size distributions for mapped reads
+    cat ${sample}.mapped.fasta | \
+        awk 'BEGIN {FS="x"; OFS="\\t"} 
+             NR%2==1 {header=\$0; split(\$1,a,"_"); count=\$2} 
+             NR%2==0 {len=length(\$0); totals[len]+=count} 
+             END {for(l in totals) print totals[l], l}' | \
+        sort -k2 -n > ${sample}.mapped.ssd
+    
+    # Calculate sequence size distributions for unmapped reads
+    cat ${sample}.unmapped.fasta | \
+        awk 'BEGIN {FS="x"; OFS="\\t"} 
+             NR%2==1 {header=\$0; split(\$1,a,"_"); count=\$2} 
+             NR%2==0 {len=length(\$0); totals[len]+=count} 
+             END {for(l in totals) print totals[l], l}' | \
+        sort -k2 -n > ${sample}.unmapped.ssd
     """
 }
 
