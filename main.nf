@@ -365,6 +365,7 @@ process COPY_FQ {
     """
     cp ${samplePath}.fq ${sample}.fastq
     """
+}
 
 process CUTADAPT {
     label 'high_cpu'
