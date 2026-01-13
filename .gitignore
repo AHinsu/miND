@@ -1,18 +1,38 @@
+# Snakemake
 .snakemake
+dag.pdf
+
+# Nextflow
+work/
+.nextflow/
+.nextflow.log*
+*.html
+timeline.html
+report.html
+trace.txt
+dag.svg
+dag.png
+
+# Conda environments
 envs/conda/*
 envs/tmp
 repository/envs/tmp
+
+# Data directories
 repository/data/*
 tmp/*
-dag.pdf
-runall.sh
 data/*
 output/*
+testdata
+
+# Pipeline artifacts
 dir_mapper*
 mapper_log*
 Rplots.pdf
-testdata
 scripts/report_files
+
+# System files
 .DS_Store
 ._*
 ~$*
+runall.sh
