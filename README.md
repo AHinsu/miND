@@ -65,14 +65,36 @@ The `run_nextflow.sh` script will automatically install Nextflow if not found.
 
 ### Basic Usage
 
+The pipeline can be run using the convenience wrapper script or directly with Nextflow.
+
+**Using the wrapper script (recommended for beginners):**
+
 ```bash
 ./run_nextflow.sh -i SampleContrastSheet.xlsx
 ```
 
+**Using Nextflow directly:**
+
+```bash
+nextflow run main.nf --sampleSheet SampleContrastSheet.xlsx -profile conda
+```
+
 #### Advanced Usage
+
+**Using the wrapper script:**
 
 ```bash
 ./run_nextflow.sh -i SampleContrastSheet.xlsx -o my_analysis -profile standard,conda
+```
+
+**Using Nextflow directly:**
+
+```bash
+nextflow run main.nf \
+  --sampleSheet SampleContrastSheet.xlsx \
+  --outputSubfolder my_analysis \
+  -profile conda \
+  -resume
 ```
 
 #### Command Line Options
