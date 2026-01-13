@@ -75,10 +75,6 @@ if (params.version) {
     exit 0
 }
 
-// Import groovy libraries
-import groovy.json.JsonSlurper
-import java.nio.file.Paths
-
 /*
  * Parse Excel configuration file
  */
@@ -128,7 +124,8 @@ workflow {
     // Parse sample sheet
     sampleSheetFile = file(sampleSheetParam)
     if (!sampleSheetFile.exists()) {
-        error "Sample sheet not found: ${params.sampleSheet}"
+        log.error "Sample sheet not found: ${sampleSheetParam}"
+        exit 1
     }
     
     // Determine output path

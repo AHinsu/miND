@@ -328,8 +328,7 @@ nextflow help run
 
 # Check documentation
 cat README.md
-cat MIGRATION.md
-cat PROCESS_MAPPING.md
+cat QUICK_REFERENCE.md
 ```
 
 ## Resources
