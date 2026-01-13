@@ -56,28 +56,49 @@ workflow {
     // Determine output path
     def sampleSheetPath = sampleSheetFile.parent
     def sampleSheetName = sampleSheetFile.name
-    def sampleSheetStem = sampleSheetFile.baseName
+    def sampleSheetStem = sampleSheetFile.baseName.replaceAll('.xlsx$', '')
     
     def outputSubfolder = params.outputSubfolder ?: sampleSheetStem.replaceAll(/-?_?SampleContrastSheet/, '') ?: 'default'
     def outPath = "${params.outdir}/${outputSubfolder}"
     
-    // Create sample channel from sample sheet
-    // This reads the Excel file to get sample list
-    Channel
-        .fromPath(params.sampleSheet)
-        .splitCsv(header: false, sep: '\t')
-        .map { row -> row[0] }
-        .set { sample_ids }
+    // Parse Excel file to get sample list and configuration
+    def config = parseExcelConfig(sampleSheetFile)
     
-    // For now, we'll create a placeholder channel
-    // In production, this would parse the Excel file properly
-    samples_ch = Channel.empty()
-    
-    // Process input files based on format
-    // Handle different input formats: .fastq, .fq, .fastq.gz, .fq.gz, .bam
-    
-    // Main pipeline execution
-    MIND_PIPELINE(sampleSheetFile, sampleSheetPath, outPath)
+    // Update parameters from Excel configuration
+    if (config.containsKey('samples') && config.samples.size() > 0) {
+        log.info "Found ${config.samples.size()} samples in sample sheet"
+        
+        // Update params from Excel if present
+        if (config.containsKey('projectID')) {
+            params.projectID = config.projectID
+        }
+        if (config.containsKey('adapter')) {
+            params.adapter = config.adapter
+        }
+        if (config.containsKey('readMinLength')) {
+            params.readMinLength = config.readMinLength
+        }
+        if (config.containsKey('qualityCutoff')) {
+            params.qualityCutoff = config.qualityCutoff
+        }
+        if (config.containsKey('alpha')) {
+            params.alpha = config.alpha
+        }
+        if (config.containsKey('deAnalysis')) {
+            params.deAnalysis = config.deAnalysis
+        }
+        if (config.containsKey('includeSpikeIns')) {
+            params.includeSpikeIns = config.includeSpikeIns
+        }
+        if (config.containsKey('includeSequence')) {
+            params.includeSequence = config.includeSequence
+        }
+        
+        // Main pipeline execution
+        MIND_PIPELINE(sampleSheetFile, sampleSheetPath, outPath, config.samples)
+    } else {
+        error "No samples found in sample sheet. Please check the Excel file format."
+    }
 }
 
 /*
@@ -88,22 +109,69 @@ workflow MIND_PIPELINE {
         sampleSheet
         sampleSheetPath
         outPath
+        sampleList
     
     main:
-        // Create sample channel - placeholder for Excel parsing
-        // In practice, this needs to parse the Excel file
-        def sampleList = ['sample1', 'sample2']  // Placeholder
-        
+        // Create sample channel from list
         samples_ch = Channel.fromList(sampleList)
         
-        // Process raw input files
-        INPUT_PROCESSING(samples_ch, sampleSheetPath, outPath)
+        // Process raw input files - determine format for each sample
+        // Check which format exists for each sample
+        samples_with_format = samples_ch.map { sample ->
+            def samplePath = "${sampleSheetPath}/${sample}"
+            def format = null
+            
+            // Check file existence in order of preference
+            if (file("${samplePath}.bam").exists()) {
+                format = 'bam'
+            } else if (file("${samplePath}.fastq.gz").exists()) {
+                format = 'fastq.gz'
+            } else if (file("${samplePath}.fq.gz").exists()) {
+                format = 'fq.gz'
+            } else if (file("${samplePath}.fastq").exists()) {
+                format = 'fastq'
+            } else if (file("${samplePath}.fq").exists()) {
+                format = 'fq'
+            } else {
+                log.warn "No input file found for sample: ${sample}"
+            }
+            
+            return [sample, format, samplePath]
+        }.filter { it[1] != null }
+        
+        // Branch samples by format
+        samples_with_format.branch {
+            bam: it[1] == 'bam'
+                return [it[0], it[2]]
+            fastq_gz: it[1] == 'fastq.gz'
+                return [it[0], it[2]]
+            fq_gz: it[1] == 'fq.gz'
+                return [it[0], it[2]]
+            fastq: it[1] == 'fastq'
+                return [it[0], it[2]]
+            fq: it[1] == 'fq'
+                return [it[0], it[2]]
+        }.set { samples_branched }
+        
+        // Process each format
+        bam_fastq = BAM2FASTQ(samples_branched.bam, sampleSheetPath, outPath)
+        fastq_gz_fastq = UNCOMPRESS_FASTQ_GZ(samples_branched.fastq_gz, sampleSheetPath, outPath)
+        fq_gz_fastq = UNCOMPRESS_FQ_GZ(samples_branched.fq_gz, sampleSheetPath, outPath)
+        fastq_copy = COPY_FASTQ(samples_branched.fastq, sampleSheetPath, outPath)
+        fq_copy = COPY_FQ(samples_branched.fq, sampleSheetPath, outPath)
+        
+        // Combine all raw fastq files
+        fastq_raw = bam_fastq.fastq
+            .mix(fastq_gz_fastq.fastq)
+            .mix(fq_gz_fastq.fastq)
+            .mix(fastq_copy.fastq)
+            .mix(fq_copy.fastq)
         
         // Quality control on raw data
-        FASTQC_RAW(INPUT_PROCESSING.out.fastq_raw, outPath)
+        FASTQC_RAW(fastq_raw, outPath)
         
         // Adapter trimming
-        CUTADAPT(INPUT_PROCESSING.out.fastq_raw, outPath)
+        CUTADAPT(fastq_raw, outPath)
         
         // Quality control on trimmed data
         FASTQC_TRIMMED(CUTADAPT.out.trimmed_fastq, outPath)
@@ -206,50 +274,6 @@ workflow MIND_PIPELINE {
 }
 
 /*
- * Input file processing
- */
-workflow INPUT_PROCESSING {
-    take:
-        samples
-        sampleSheetPath
-        outPath
-    
-    main:
-        // Check file extensions and process accordingly
-        samples.branch { sample ->
-            bam: file("${sampleSheetPath}/${sample}.bam").exists()
-            fastq_gz: file("${sampleSheetPath}/${sample}.fastq.gz").exists()
-            fq_gz: file("${sampleSheetPath}/${sample}.fq.gz").exists()
-            fastq: file("${sampleSheetPath}/${sample}.fastq").exists()
-            fq: file("${sampleSheetPath}/${sample}.fq").exists()
-        }.set { samples_branched }
-        
-        // Process BAM files
-        BAM2FASTQ(samples_branched.bam, sampleSheetPath, outPath)
-        
-        // Uncompress .gz files
-        UNCOMPRESS_FASTQ_GZ(samples_branched.fastq_gz, sampleSheetPath, outPath)
-        UNCOMPRESS_FQ_GZ(samples_branched.fq_gz, sampleSheetPath, outPath)
-        
-        // Copy uncompressed files
-        COPY_FASTQ(samples_branched.fastq, sampleSheetPath, outPath)
-        COPY_FQ(samples_branched.fq, sampleSheetPath, outPath)
-        
-        // Convert .fq to .fastq
-        MV_FQ_TO_FASTQ(COPY_FQ.out.fastq, outPath)
-        
-        // Combine all processed files
-        fastq_raw = BAM2FASTQ.out.fastq
-            .mix(UNCOMPRESS_FASTQ_GZ.out.fastq)
-            .mix(UNCOMPRESS_FQ_GZ.out.fastq)
-            .mix(COPY_FASTQ.out.fastq)
-            .mix(MV_FQ_TO_FASTQ.out.fastq)
-    
-    emit:
-        fastq_raw = fastq_raw
-}
-
-/*
  * Process definitions
  */
 
@@ -258,8 +282,8 @@ process BAM2FASTQ {
     tag "$sample"
     
     input:
-    val sample
-    path sampleSheetPath
+    tuple val(sample), val(samplePath)
+    val sampleSheetPath
     val outPath
     
     output:
@@ -267,7 +291,7 @@ process BAM2FASTQ {
     
     script:
     """
-    samtools bam2fq ${sampleSheetPath}/${sample}.bam > ${sample}.fastq
+    samtools bam2fq ${samplePath}.bam > ${sample}.fastq
     """
 }
 
@@ -276,8 +300,8 @@ process UNCOMPRESS_FASTQ_GZ {
     tag "$sample"
     
     input:
-    val sample
-    path sampleSheetPath
+    tuple val(sample), val(samplePath)
+    val sampleSheetPath
     val outPath
     
     output:
@@ -285,7 +309,7 @@ process UNCOMPRESS_FASTQ_GZ {
     
     script:
     """
-    gzip -dc ${sampleSheetPath}/${sample}.fastq.gz > ${sample}.fastq
+    gzip -dc ${samplePath}.fastq.gz > ${sample}.fastq
     """
 }
 
@@ -294,16 +318,16 @@ process UNCOMPRESS_FQ_GZ {
     tag "$sample"
     
     input:
-    val sample
-    path sampleSheetPath
+    tuple val(sample), val(samplePath)
+    val sampleSheetPath
     val outPath
     
     output:
-    tuple val(sample), path("${sample}.fq"), emit: fastq
+    tuple val(sample), path("${sample}.fastq"), emit: fastq
     
     script:
     """
-    gzip -dc ${sampleSheetPath}/${sample}.fq.gz > ${sample}.fq
+    gzip -dc ${samplePath}.fq.gz > ${sample}.fastq
     """
 }
 
@@ -312,8 +336,8 @@ process COPY_FASTQ {
     tag "$sample"
     
     input:
-    val sample
-    path sampleSheetPath
+    tuple val(sample), val(samplePath)
+    val sampleSheetPath
     val outPath
     
     output:
@@ -321,7 +345,7 @@ process COPY_FASTQ {
     
     script:
     """
-    cp ${sampleSheetPath}/${sample}.fastq ${sample}.fastq
+    cp ${samplePath}.fastq ${sample}.fastq
     """
 }
 
@@ -330,25 +354,8 @@ process COPY_FQ {
     tag "$sample"
     
     input:
-    val sample
-    path sampleSheetPath
-    val outPath
-    
-    output:
-    tuple val(sample), path("${sample}.fq"), emit: fastq
-    
-    script:
-    """
-    cp ${sampleSheetPath}/${sample}.fq ${sample}.fq
-    """
-}
-
-process MV_FQ_TO_FASTQ {
-    label 'low_cpu'
-    tag "$sample"
-    
-    input:
-    tuple val(sample), path(fq_file)
+    tuple val(sample), val(samplePath)
+    val sampleSheetPath
     val outPath
     
     output:
@@ -356,9 +363,8 @@ process MV_FQ_TO_FASTQ {
     
     script:
     """
-    mv ${fq_file} ${sample}.fastq
+    cp ${samplePath}.fq ${sample}.fastq
     """
-}
 
 process CUTADAPT {
     label 'high_cpu'
