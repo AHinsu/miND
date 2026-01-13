@@ -20,10 +20,11 @@ def helpMessage() {
     ====================================================
     
     Usage:
-      nextflow run main.nf --sampleSheet <file.xlsx> [options]
+      nextflow run main.nf --input <file.xlsx> [options]
     
     Required arguments:
-      --sampleSheet <file>      Path to Excel sample sheet (SampleContrastSheet.xlsx)
+      --input <file>            Path to Excel sample sheet (SampleContrastSheet.xlsx)
+                                (or --sampleSheet for backward compatibility)
     
     Optional arguments:
       --outputSubfolder <name>  Output subfolder name (default: derived from sample sheet)
@@ -116,7 +117,7 @@ workflow {
     // Check required parameters
     def sampleSheetParam = params.input ?: params.sampleSheet
     if (!sampleSheetParam) {
-        log.error "Please provide a sample sheet with --sampleSheet or --input parameter"
+        log.error "Please provide a sample sheet with --input parameter (or --sampleSheet for backward compatibility)"
         helpMessage()
         exit 1
     }
