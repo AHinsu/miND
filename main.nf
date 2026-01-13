@@ -3,7 +3,6 @@ nextflow.enable.dsl = 2
 
 /*
  * miND - miRNA NGS data pipeline
- * Converted from Snakemake to Nextflow
  * Copyright (C) 2021 TAmiRNA GmbH
  * Written and developed by Andreas B. Diendorfer
  */
