@@ -2,6 +2,8 @@
 
 /*
  * miND - miRNA NGS data pipeline
+ * Nextflow implementation v2.0
+ * 
  * Copyright (C) 2021 TAmiRNA GmbH
  * Written and developed by Andreas B. Diendorfer
  */
